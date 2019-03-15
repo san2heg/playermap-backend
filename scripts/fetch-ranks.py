@@ -14,6 +14,9 @@
 
 import os
 import urllib2
+import datetime
+import pymongo
+import dns
 from bs4 import BeautifulSoup
 import sys
 import argparse
@@ -24,13 +27,16 @@ load_dotenv(dotenv_path=os.path.join('.', '.env'))
 
 MSF_USER = os.getenv('MSF_USER')
 MSF_PASS = os.getenv('MSF_PASS')
+DB_PASS = os.getenv('DB_PASS')
+
+NBA_START = 1974
 
 def rankings_url(year):
     return 'https://www.basketball-reference.com/leagues/NBA_' + str(year) + '_advanced.html'
 
 # Return list of players and their rankings given some year
 def scrape_rankings(year, limit):
-    print('Scraping top ' + str(limit) + ' for ' + str(year))
+    print('> Scraping top ' + str(limit) + ' for ' + str(year) + ' <')
 
     page = urllib2.urlopen(rankings_url(year))
     soup = BeautifulSoup(page, 'html.parser')
@@ -53,6 +59,16 @@ def scrape_rankings(year, limit):
 
     return players_dict
 
+# Format output
+def pretty_print(rankings):
+    res_list = []
+    for k,v in rankings.iteritems():
+        res_list.append((v['rank'], v['team'], v['fullname']))
+    res_list.sort()
+
+    for r, t, fn in res_list:
+        print(str(r) + ': ' + str(fn) + ' - ' + str(t))
+
 def main():
     # Get command line arguments
     parser=argparse.ArgumentParser()
@@ -64,21 +80,32 @@ def main():
 
     args = parser.parse_args()
 
+    # Initialize DB connection if necessary
+    if args.update:
+        print('> Connecting to DB <')
+        client = pymongo.MongoClient('mongodb+srv://san2heg:'+DB_PASS+'@nba-trade-map-aoy8h.mongodb.net/test?retryWrites=true')
+        db = client['players']
+        rankings_col = db['rankings']
+
     if not args.all and args.year == None:
         sys.exit('Specify value for year')
 
-    if not args.pretty:
-        print(scrape_rankings(args.year, args.limit))
-    else:
-        # Formatting
-        res = scrape_rankings(args.year, args.limit)
-        res_list = []
-        for k,v in res.iteritems():
-            res_list.append((v['rank'], v['team'], v['fullname']))
-        res_list.sort()
+    def fetch(year, update):
+        res = scrape_rankings(year, args.limit)
+        if args.pretty:
+            pretty_print(res)
+        else:
+            print(res)
+        if update:
+            db_update = rankings_col.update_one({'year': year}, {'$set': {'players': res}}, upsert=True)
+            print('> DB Updated. Matched: ' + str(db_update.matched_count) + ', Modified: ' + str(db_update.modified_count) + '. Entry possibly inserted <')
 
-        for r, t, fn in res_list:
-            print(str(r) + ': ' + str(fn) + ' - ' + str(t))
+    if not args.all:
+        fetch(args.year, args.update)
+    else:
+        curr_year = int(datetime.datetime.now().year)
+        for y in range(NBA_START, curr_year+1):
+            fetch(y, args.update)
 
 if __name__ == '__main__':
     main()
