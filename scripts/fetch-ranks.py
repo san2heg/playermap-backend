@@ -55,7 +55,7 @@ def scrape_rankings(year, limit):
 
     players_dict = {}
     for r,(pid,p,_,t) in enumerate(players):
-        players_dict[pid] = {'rank': r+1, 'team': t, 'fullname': p}
+        players_dict[p] = {'rank': r+1, 'team': t, 'br_pid': pid}
 
     return players_dict
 
@@ -63,11 +63,23 @@ def scrape_rankings(year, limit):
 def pretty_print(rankings):
     res_list = []
     for k,v in rankings.iteritems():
-        res_list.append((v['rank'], v['team'], v['fullname']))
+        res_list.append((v['rank'], v['team'], k))
     res_list.sort()
 
     for r, t, fn in res_list:
         print(str(r) + ': ' + str(fn) + ' - ' + str(t))
+
+# Overlap report
+def overlap_report(year1, year2):
+    playerobj1 = year1['players']
+    playerobj2 = year2['players']
+
+    overlap = []
+    for k in playerobj1:
+        if k in playerobj2:
+            overlap.append(k)
+
+    return overlap
 
 def main():
     # Get command line arguments
