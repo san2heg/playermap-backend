@@ -24,6 +24,7 @@ from bs4 import BeautifulSoup
 import sys
 import argparse
 import base64
+import time
 import requests
 from dotenv import load_dotenv
 load_dotenv(dotenv_path=os.path.join('.', '.env'))
@@ -34,7 +35,7 @@ DB_PASS = os.getenv('DB_PASS')
 
 NBA_START = 1974
 
-TEMP_DIR = './tmp'
+HEADSHOTS_DIR = '../headshots/'
 
 def rankings_url(year):
     return 'https://www.basketball-reference.com/leagues/NBA_' + str(year) + '_advanced.html'
@@ -73,15 +74,15 @@ def fetch_headshot(firstname, lastname, br_pid):
     r = requests.get('https://d2cwpp38twqe55.cloudfront.net/req/201902151/images/players/'+br_pid+'.jpg', stream=True, allow_redirects=False)
     if r.status_code == 302:
         print('\tHeadshot not found')
-        return (False,'NOT FOUND')
+        return False
     elif r.status_code != 200:
         print('\tError fetching headshot: ' + str(r.status_code))
-        return (False,'ERROR')
+        return False
     filename = br_pid + '.jpg'
-    dirpath = os.path.join(TEMP_DIR,filename)
+    dirpath = os.path.join(HEADSHOTS_DIR, filename)
     with open(dirpath, 'w+') as f:
         f.write(r.content)
-    return (True,filename)
+    return True
 
 # Format output
 def pretty_print(rankings):
@@ -113,14 +114,13 @@ def main():
     parser.add_argument('--update', '-u', help='Update database entries', action='store_true')
     parser.add_argument('--limit', '-l', help='Define top LIMIT players to output', type=int, default=50)
     parser.add_argument('--pretty', '-p', help='Pretty print output', action='store_true')
-    parser.add_argument('--img', '-i', help='Fetch and upload headshots. Requires --update', action='store_true')
+    parser.add_argument('--img', '-i', help='Fetch and upload headshots', action='store_true')
+    parser.add_argument('--throttle', '-t', help='Throttle scraping requests to prevent overload', action='store_true')
 
     args = parser.parse_args()
 
     if not args.all and args.year == None:
         sys.exit('Specify value for year')
-    if args.img and not args.update:
-        sys.exit('--update flag required for --img')
 
     # Initialize DB connection if necessary
     if args.update:
@@ -128,7 +128,6 @@ def main():
         client = pymongo.MongoClient('mongodb+srv://san2heg:'+DB_PASS+'@nba-trade-map-aoy8h.mongodb.net/test?retryWrites=true')
         db = client['players']
         rankings_col = db['rankings']
-        headshots_col = db['headshots']
 
     def fetch(year):
         res = scrape_rankings(year, args.limit)
@@ -141,19 +140,20 @@ def main():
             r_update = rankings_col.update_one({'year': year}, {'$set': {'players': res}}, upsert=True)
             print('> DB players.rankings updated. Matched: ' + str(r_update.matched_count) + ', Modified: ' + str(r_update.modified_count) + '. Entry possibly inserted <')
             if args.img:
-                # Fetch headshot if necessary and update database
+                # Fetch headshot if necessary and save to filesystem
                 for p,obj in res.iteritems():
-                    if headshots_col.count_documents({'br_pid': obj['br_pid']}) > 0:
-                        # Headshot already exists
-                        print('> Headshot for '+ p + ' already exists in DB, continuing... <')
+                    filename = obj['br_pid'] + '.jpg'
+                    headshot_exists = os.path.isfile(os.path.join(HEADSHOTS_DIR, filename))
+
+                    if headshot_exists:
+                        print('> Headshot for '+ p + ' already exists in filesystem, continuing... <')
                         continue
-                    fetched,filename = fetch_headshot(obj['firstname'], obj['lastname'], obj['br_pid'])
+
+                    if args.throttle:
+                        time.sleep(0.5)
+                    fetched = fetch_headshot(obj['firstname'], obj['lastname'], obj['br_pid'])
                     if fetched:
-                        # Upload temp file to database
-                        with open(os.path.join(TEMP_DIR, filename), 'rb') as f:
-                            encoded = Binary(f.read())
-                        h_update = headshots_col.insert_one({'player': p, 'img': encoded, 'filename': filename, 'br_pid': obj['br_pid']})
-                        print('\tDB players.rankings updated. Inserted: ' + str(h_update.acknowledged))
+                        print('\tHeadshot saved to filesystem')
 
     if not args.all:
         fetch(args.year)
@@ -161,15 +161,6 @@ def main():
         curr_year = int(datetime.datetime.now().year)
         for y in range(NBA_START, curr_year+1):
             fetch(y)
-
-    # Clear tmp directory contents
-    for file in os.listdir(TEMP_DIR):
-        file_path = os.path.join(TEMP_DIR, file)
-        try:
-            if os.path.isfile(file_path):
-                os.unlink(file_path)
-        except Exception as e:
-            print(e)
 
 if __name__ == '__main__':
     main()
