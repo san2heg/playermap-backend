@@ -116,11 +116,14 @@ def main():
     parser.add_argument('--pretty', '-p', help='Pretty print output', action='store_true')
     parser.add_argument('--img', '-i', help='Fetch and upload headshots', action='store_true')
     parser.add_argument('--throttle', '-t', help='Throttle scraping requests to prevent overload', action='store_true')
+    parser.add_argument('--replace', '-r', help='Replace existing headshots with new ones. Requires --img', action='store_true')
 
     args = parser.parse_args()
 
     if not args.all and args.year == None:
         sys.exit('Specify value for year')
+    if args.replace and not args.img:
+        sys.exit('--replace option requires --img')
 
     # Initialize DB connection if necessary
     if args.update:
@@ -145,14 +148,13 @@ def main():
                     filename = obj['br_pid'] + '.jpg'
                     headshot_exists = os.path.isfile(os.path.join(HEADSHOTS_DIR, filename))
 
-                    if headshot_exists:
+                    if not args.replace and headshot_exists:
                         print('> Headshot for '+ p + ' already exists in filesystem, continuing... <')
                         continue
 
                     if args.throttle:
                         time.sleep(0.5)
-                    fetched = fetch_headshot(obj['firstname'], obj['lastname'], obj['br_pid'])
-                    if fetched:
+                    if fetch_headshot(obj['firstname'], obj['lastname'], obj['br_pid']):
                         print('\tHeadshot saved to filesystem')
 
     if not args.all:
