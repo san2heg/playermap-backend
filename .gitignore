@@ -1,3 +1,4 @@
 */.env
 scripts/env
 headshots/
+node_modules/
