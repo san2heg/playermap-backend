@@ -35,7 +35,7 @@ DB_PASS = os.getenv('DB_PASS')
 
 NBA_START = 1974
 
-HEADSHOTS_DIR = '../headshots/'
+HEADSHOTS_DIR = '../public/headshots/'
 
 def rankings_url(year):
     return 'https://www.basketball-reference.com/leagues/NBA_' + str(year) + '_advanced.html'
