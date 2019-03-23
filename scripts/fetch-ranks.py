@@ -1,16 +1,10 @@
-# Script to scrape seasonal player rankings from basketball-reference.com
-# Uses scraped data in combination with monthly player team-location data to
-# create monthly lists of players and their teams during that month. Script
-# includes option to update mongoDB database with monthly records.
+# Script to scrape seasonal yearly player rankings from basketball-reference.com
+# Also fetches headshots for players.
 
 # Example usage:
-# python fetch-ranks --year=1998 --month=9
-#   => outputs top ranked players of September, 1998 with their respective teams
+# python fetch-ranks --year=1998
 # python fetch-ranks --all
-#   => outputs top ranked players for each month from the beginning of the NBA
-#      to current day
 # python fetch-ranks --all --update
-#   => also updates mongoDB database with newly fetched records
 
 import os
 import urllib2
@@ -27,7 +21,7 @@ import base64
 import time
 import requests
 from dotenv import load_dotenv
-load_dotenv(dotenv_path=os.path.join('.', '.env'))
+load_dotenv(dotenv_path=os.path.join('..', '.env'))
 
 MSF_USER = os.getenv('MSF_USER')
 MSF_PASS = os.getenv('MSF_PASS')
