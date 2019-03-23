@@ -12,17 +12,34 @@ app.use(express.static('public'));
 
 // Connect to database
 MongoClient.connect('mongodb+srv://san2heg:'+process.env.DB_PASS+'@nba-trade-map-aoy8h.mongodb.net/test?retryWrites=true', { useNewUrlParser: true }, function (err, client) {
-  if (err) throw err
-  let db = client.db('players')
+  if (err) throw err;
+  var db = client.db('players');
+  var player_collection = db.collection('rankings');
 
   // Endpoint for getting all player rankings
-  app.get('/players/all', function(req, res) {
-    res.send('All players');
+  app.get('/players/all', function(req, res, next) {
+    player_collection.find().toArray(function(err, result) {
+      if (err) next(err);
+      if (result == null) res.status(400).json({});
+      else {
+        player_table = {};
+        for (var item of result) {
+          player_table[item['year']] = item['players'];
+        }
+        res.json(player_table);
+      }
+    });
   });
 
   // Endpoint for getting player rankings by year
   app.get('/players/:year', function(req, res) {
-    res.send('Players for ' + req.params['year']);
+    player_collection.findOne({'year': parseInt(req.params['year'])}, function(err, item) {
+      if (err) next(err);
+      if (item == null) res.status(400).json({});
+      else {
+        res.json(item['players']);
+      }
+    })
   });
 })
 

@@ -64,7 +64,7 @@ def scrape_rankings(year, limit):
         name_list = p.split(' ')
         firstname = name_list[0]
         lastname = ' '.join(name_list[1:])
-        players_dict[p] = {'rank': r+1, 'team': t, 'br_pid': pid, 'firstname': firstname, 'lastname': lastname}
+        players_dict[pid] = {'rank': r+1, 'team': t, 'firstname': firstname, 'lastname': lastname, 'fullname': p}
 
     return players_dict
 
@@ -88,7 +88,7 @@ def fetch_headshot(firstname, lastname, br_pid):
 def pretty_print(rankings):
     res_list = []
     for k,v in rankings.iteritems():
-        res_list.append((v['rank'], v['team'], k))
+        res_list.append((v['rank'], v['team'], v['fullname']))
     res_list.sort()
 
     for r, t, fn in res_list:
@@ -142,20 +142,20 @@ def main():
             # Update database
             r_update = rankings_col.update_one({'year': year}, {'$set': {'players': res}}, upsert=True)
             print('> DB players.rankings updated. Matched: ' + str(r_update.matched_count) + ', Modified: ' + str(r_update.modified_count) + '. Entry possibly inserted <')
-            if args.img:
-                # Fetch headshot if necessary and save to filesystem
-                for p,obj in res.iteritems():
-                    filename = obj['br_pid'] + '.jpg'
-                    headshot_exists = os.path.isfile(os.path.join(HEADSHOTS_DIR, filename))
+        if args.img:
+            # Fetch headshot if necessary and save to filesystem
+            for pid,obj in res.iteritems():
+                filename = pid + '.jpg'
+                headshot_exists = os.path.isfile(os.path.join(HEADSHOTS_DIR, filename))
 
-                    if not args.replace and headshot_exists:
-                        print('> Headshot for '+ p + ' already exists in filesystem, continuing... <')
-                        continue
+                if not args.replace and headshot_exists:
+                    print('> Headshot for '+ obj['fullname'] + ' already exists in filesystem, continuing... <')
+                    continue
 
-                    if args.throttle:
-                        time.sleep(0.5)
-                    if fetch_headshot(obj['firstname'], obj['lastname'], obj['br_pid']):
-                        print('\tHeadshot saved to filesystem')
+                if args.throttle:
+                    time.sleep(0.5)
+                if fetch_headshot(obj['firstname'], obj['lastname'], pid):
+                    print('\tHeadshot saved to filesystem')
 
     if not args.all:
         fetch(args.year)
