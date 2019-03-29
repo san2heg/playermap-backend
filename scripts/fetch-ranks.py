@@ -34,6 +34,9 @@ HEADSHOTS_DIR = '../public/headshots/'
 def rankings_url(year):
     return 'https://www.basketball-reference.com/leagues/NBA_' + str(year) + '_advanced.html'
 
+def player_url(pid, year):
+    return 'https://www.basketball-reference.com/players/g/' + str(pid) + '/gamelog/' + str(year)
+
 # Return list of players and their rankings given some year
 def scrape_rankings(year, limit):
     print('> Scraping top ' + str(limit) + ' for ' + str(year) + ' <')
@@ -48,6 +51,7 @@ def scrape_rankings(year, limit):
         player = row.find('td', {'data-stat': 'player'}).find('a').string
         player_id = row.find('td', {'data-stat': 'player'})['data-append-csv']
         team = row.find('td', {'data-stat': 'team_id'}).string
+
         players.append((player_id, player, vorp, team))
 
     players.sort(key=lambda t: t[2], reverse=True)
@@ -58,6 +62,15 @@ def scrape_rankings(year, limit):
         name_list = p.split(' ')
         firstname = name_list[0]
         lastname = ' '.join(name_list[1:])
+
+        # Deal with players being on more than one team during a season
+        if t == 'TOT':
+            player_page = urllib2.urlopen(player_url(pid, year))
+            player_soup = BeautifulSoup(player_page, 'html.parser')
+            player_table = player_soup.find(id='all_pgl_basic').tbody
+            rows = player_table.select('tr:not(.thead)')
+            t = rows[-1].find('td', {'data-stat': 'team_id'}).string
+
         players_dict[pid] = {'rank': r+1, 'team': t, 'firstname': firstname, 'lastname': lastname, 'fullname': p}
 
     return players_dict
