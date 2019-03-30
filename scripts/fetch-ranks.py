@@ -31,6 +31,8 @@ NBA_START = 1974
 
 HEADSHOTS_DIR = '../public/headshots/'
 
+unique_teams_all = set() # keep track of unique teams encountered during fetching
+
 def rankings_url(year):
     return 'https://www.basketball-reference.com/leagues/NBA_' + str(year) + '_advanced.html'
 
@@ -70,6 +72,7 @@ def scrape_rankings(year, limit):
             player_table = player_soup.find(id='all_pgl_basic').tbody
             rows = player_table.select('tr:not(.thead)')
             t = rows[-1].find('td', {'data-stat': 'team_id'}).string
+        unique_teams_all.add(t)
 
         players_dict[pid] = {'rank': r+1, 'team': t, 'firstname': firstname, 'lastname': lastname, 'fullname': p}
 
@@ -141,6 +144,7 @@ def main():
 
     def fetch(year):
         res = scrape_rankings(year, args.limit)
+
         if args.pretty:
             pretty_print(res)
         else:
@@ -170,6 +174,11 @@ def main():
         curr_year = int(datetime.datetime.now().year)
         for y in range(NBA_START, curr_year+1):
             fetch(y)
+
+    print('> Unique Teams Encountered <')
+    for i,t in enumerate(unique_teams_all):
+        print(str(i+1) + ': ' + str(t))
+
 
 if __name__ == '__main__':
     main()
