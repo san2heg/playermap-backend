@@ -1,6 +1,7 @@
 require('dotenv').config();
 var express = require('express');
 var morgan = require('morgan');
+var path = require('path');
 var MongoClient = require('mongodb').MongoClient;
 var app = express();
 
@@ -9,6 +10,13 @@ app.use(morgan('dev'));
 
 // Serve static headshots
 app.use(express.static('public'));
+
+// Serve react frontend
+app.use(express.static(path.join(__dirname, 'build')));
+
+app.get('/', function(req, res) {
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
 
 // Connect to database
 MongoClient.connect('mongodb+srv://san2heg:'+process.env.DB_PASS+'@nba-trade-map-aoy8h.mongodb.net/test?retryWrites=true', { useNewUrlParser: true }, function (err, client) {
