@@ -1,8 +1,6 @@
 */.env
 .env
 scripts/env
-headshots/
 node_modules/
-public/
 .DS_Store
 */.DS_Store
